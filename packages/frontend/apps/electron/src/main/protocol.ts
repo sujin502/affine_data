@@ -1,0 +1,304 @@
+import path, { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import { app, net, protocol, session } from 'electron';
+
+import { anotherHost, mainHost } from '../shared/internal-origin';
+import {
+  isPathInsideBase,
+  isWindows,
+  resolveExistingPathInBase,
+  resolvePathInBase,
+  resourcesPath,
+} from '../shared/utils';
+import { getAuthTokenForUrl } from './auth/native-token';
+import { buildType, isDev } from './config';
+import { logger } from './logger';
+
+const webStaticDir = join(resourcesPath, 'web-static');
+const devServerBase = process.env.DEV_SERVER_URL;
+const localWhiteListDirs = [
+  path.resolve(app.getPath('sessionData')),
+  path.resolve(app.getPath('temp')),
+];
+
+function isPathInWhiteList(filepath: string) {
+  return localWhiteListDirs.some(whitelistDir =>
+    isPathInsideBase(whitelistDir, filepath, {
+      caseInsensitive: isWindows(),
+    })
+  );
+}
+
+async function resolveWhitelistedLocalPath(filepath: string) {
+  for (const whitelistDir of localWhiteListDirs) {
+    try {
+      return await resolveExistingPathInBase(whitelistDir, filepath, {
+        caseInsensitive: isWindows(),
+        label: 'filepath',
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error('Invalid filepath');
+}
+
+const apiBaseByBuildType: Record<typeof buildType, string> = {
+  stable: 'https://app.affine.pro',
+  beta: 'https://insider.affine.pro',
+  internal: 'https://insider.affine.pro',
+  canary: 'https://affine.fail',
+};
+
+function resolveApiBaseUrl() {
+  if (isDev && devServerBase) {
+    return devServerBase;
+  }
+
+  return apiBaseByBuildType[buildType] ?? apiBaseByBuildType.stable;
+}
+
+function buildTargetUrl(base: string, urlObject: URL) {
+  return new URL(`${urlObject.pathname}${urlObject.search}`, base).toString();
+}
+
+async function buildAuthorizedRequest(request: Request, targetUrl: string) {
+  const clonedRequest = request.clone();
+  const headers = new Headers(clonedRequest.headers);
+  const token = getAuthTokenForUrl(targetUrl);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return new Request(targetUrl, {
+    body:
+      clonedRequest.method === 'GET' || clonedRequest.method === 'HEAD'
+        ? undefined
+        : clonedRequest.body,
+    headers,
+    method: clonedRequest.method,
+    redirect: clonedRequest.redirect,
+    signal: clonedRequest.signal,
+  });
+}
+
+async function proxyRequest(
+  request: Request,
+  urlObject: URL,
+  base: string,
+  options: { bypassCustomProtocolHandlers?: boolean } = {}
+) {
+  const { bypassCustomProtocolHandlers = true } = options;
+  const targetUrl = buildTargetUrl(base, urlObject);
+  const authorizedRequest = await buildAuthorizedRequest(request, targetUrl);
+  const proxiedRequest = bypassCustomProtocolHandlers
+    ? Object.assign(authorizedRequest, {
+        bypassCustomProtocolHandlers: true,
+      })
+    : authorizedRequest;
+  return net.fetch(proxiedRequest);
+}
+
+async function handleFileRequest(request: Request) {
+  const urlObject = new URL(request.url);
+
+  if (urlObject.host === anotherHost) {
+    urlObject.host = mainHost;
+  }
+
+  const isAbsolutePath = urlObject.host !== '.';
+  const isApiRequest =
+    !isAbsolutePath &&
+    (urlObject.pathname.startsWith('/api/') ||
+      urlObject.pathname === '/graphql');
+
+  if (isApiRequest) {
+    return proxyRequest(request, urlObject, resolveApiBaseUrl());
+  }
+
+  const isFontRequest =
+    urlObject.pathname &&
+    /\.(woff2?|ttf|otf)$/i.test(urlObject.pathname.split('?')[0] ?? '');
+
+  // Redirect to webpack dev server if available
+  if (isDev && devServerBase && !isAbsolutePath && !isFontRequest) {
+    return proxyRequest(request, urlObject, devServerBase, {
+      bypassCustomProtocolHandlers: false,
+    });
+  }
+  const clonedRequest = Object.assign(request.clone(), {
+    bypassCustomProtocolHandlers: true,
+  });
+  // this will be file types (in the web-static folder)
+  let filepath = '';
+
+  // for relative path, load the file in resources
+  if (!isAbsolutePath) {
+    if (urlObject.pathname.split('/').at(-1)?.includes('.')) {
+      const decodedPath = decodeURIComponent(urlObject.pathname).replace(
+        /^\/+/,
+        ''
+      );
+      filepath = resolvePathInBase(webStaticDir, decodedPath, {
+        caseInsensitive: isWindows(),
+        label: 'filepath',
+      });
+    } else {
+      // else, fallback to load the index.html instead
+      filepath = join(webStaticDir, 'index.html');
+    }
+  } else {
+    filepath = decodeURIComponent(urlObject.pathname);
+    // on windows, the path could be start with '/'
+    if (isWindows()) {
+      filepath = path.resolve(filepath.replace(/^\//, ''));
+    }
+    if (urlObject.host !== 'local-file' || !isPathInWhiteList(filepath)) {
+      throw new Error('Invalid filepath');
+    }
+    filepath = await resolveWhitelistedLocalPath(filepath);
+  }
+  return net.fetch(pathToFileURL(filepath).toString(), clonedRequest);
+}
+
+const needRefererDomains = [
+  /^(?:[a-zA-Z0-9-]+\.)*youtube\.com$/,
+  /^(?:[a-zA-Z0-9-]+\.)*youtube-nocookie\.com$/,
+  /^(?:[a-zA-Z0-9-]+\.)*googlevideo\.com$/,
+];
+const defaultReferer = 'https://client.affine.local/';
+const affineDomains = [
+  /^(?:[a-z0-9-]+\.)*usercontent\.affine\.pro$/i,
+  /^(?:[a-z0-9-]+\.)*affine\.pro$/i,
+  /^(?:[a-z0-9-]+\.)*affine\.fail$/i,
+  /^(?:[a-z0-9-]+\.)*affine\.run$/i,
+];
+
+function setHeader(
+  headers: Record<string, string[]>,
+  name: string,
+  value: string
+) {
+  Object.keys(headers).forEach(key => {
+    if (key.toLowerCase() === name.toLowerCase()) {
+      delete headers[key];
+    }
+  });
+  headers[name] = [value];
+}
+
+function ensureFrameAncestors(
+  headers: Record<string, string[]>,
+  directive: string
+) {
+  const cspHeaderKey = Object.keys(headers).find(
+    key => key.toLowerCase() === 'content-security-policy'
+  );
+  if (!cspHeaderKey) {
+    headers['Content-Security-Policy'] = [`frame-ancestors ${directive}`];
+    return;
+  }
+
+  const values = headers[cspHeaderKey];
+  headers[cspHeaderKey] = values.map(val => {
+    if (typeof val !== 'string') return val as any;
+    const directives = val
+      .split(';')
+      .map(v => v.trim())
+      .filter(Boolean)
+      .filter(d => !d.toLowerCase().startsWith('frame-ancestors'));
+    directives.push(`frame-ancestors ${directive}`);
+    return directives.join('; ');
+  });
+}
+
+function allowCors(
+  headers: Record<string, string[]>,
+  origin: string = 'assets://.'
+) {
+  // Signed blob URLs redirect to *.usercontent.affine.pro without CORS headers.
+  setHeader(headers, 'Access-Control-Allow-Origin', origin);
+  setHeader(headers, 'Access-Control-Allow-Credentials', 'true');
+  setHeader(headers, 'Access-Control-Allow-Methods', 'GET, HEAD, PUT, OPTIONS');
+  setHeader(
+    headers,
+    'Access-Control-Allow-Headers',
+    '*, Authorization, Content-Type, Range'
+  );
+}
+
+export function registerProtocol() {
+  protocol.handle('assets', request => {
+    return handleFileRequest(request);
+  });
+
+  session.defaultSession.webRequest.onHeadersReceived(
+    (responseDetails, callback) => {
+      const { responseHeaders, url } = responseDetails;
+      (async () => {
+        if (responseHeaders) {
+          const { protocol, hostname } = new URL(url);
+
+          // Adjust CORS for assets responses and allow blob redirects on affine domains
+          if (protocol === 'assets:') {
+            delete responseHeaders['access-control-allow-origin'];
+            delete responseHeaders['access-control-allow-headers'];
+            delete responseHeaders['Access-Control-Allow-Origin'];
+            delete responseHeaders['Access-Control-Allow-Headers'];
+            setHeader(responseHeaders, 'X-Frame-Options', 'SAMEORIGIN');
+            ensureFrameAncestors(responseHeaders, "'self'");
+          } else if (
+            (protocol === 'http:' || protocol === 'https:') &&
+            affineDomains.some(regex => regex.test(hostname))
+          ) {
+            allowCors(responseHeaders);
+          }
+        }
+      })()
+        .catch(err => {
+          logger.error('error handling headers received', err);
+        })
+        .finally(() => {
+          callback({ responseHeaders });
+        });
+    }
+  );
+
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const url = new URL(details.url);
+
+    (async () => {
+      if (
+        url.protocol === 'http:' ||
+        url.protocol === 'https:' ||
+        url.protocol === 'ws:' ||
+        url.protocol === 'wss:'
+      ) {
+        const token = getAuthTokenForUrl(details.url);
+        if (token) {
+          delete details.requestHeaders.authorization;
+          details.requestHeaders.Authorization = `Bearer ${token}`;
+        }
+      }
+
+      const hostname = url.hostname;
+      const needReferer = needRefererDomains.some(regex =>
+        regex.test(hostname)
+      );
+      if (needReferer && !details.requestHeaders['Referer']) {
+        details.requestHeaders['Referer'] = defaultReferer;
+      }
+    })()
+      .catch(err => {
+        logger.error('error handling before send headers', err);
+      })
+      .finally(() => {
+        callback({
+          cancel: false,
+          requestHeaders: details.requestHeaders,
+        });
+      });
+  });
+}

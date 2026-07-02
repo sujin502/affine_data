@@ -1,0 +1,6 @@
+mutation removeWorkspaceEmbeddingFiles(
+  $workspaceId: String!
+  $fileId: String!
+) {
+  removeWorkspaceEmbeddingFiles(workspaceId: $workspaceId, fileId: $fileId)
+}

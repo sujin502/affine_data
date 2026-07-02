@@ -1,0 +1,22 @@
+{
+  "name": "@affine/routes",
+  "version": "0.26.3",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "r build.ts"
+  },
+  "devDependencies": {
+    "@affine-tools/cli": "workspace:*",
+    "@affine-tools/utils": "workspace:*",
+    "path-to-regexp": "^8.4.2",
+    "vitest": "^4.1.8"
+  },
+  "peerDependencies": {
+    "react": "^19.2.1",
+    "react-router-dom": "^7.18.0"
+  }
+}
