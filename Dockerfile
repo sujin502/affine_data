@@ -51,19 +51,27 @@ RUN yarn workspaces focus @affine/server --production
 # Generate Prisma client
 RUN yarn workspace @affine/server prisma generate
 
-# Move node_modules into server directory (as expected by runtime)
-RUN mv ./node_modules ./packages/backend/server
-
 # ============================================================
-# Stage 3: Runtime - use official image as base (has frontend)
+# Stage 3: Runtime
 # ============================================================
-FROM ghcr.io/toeverything/affine:stable AS runtime
+FROM node:22-bookworm-slim
 WORKDIR /app
 
-# Copy only our modified server code (dist + node_modules + native)
+# Copy server code
 COPY --from=server-builder /app/packages/backend/server/dist /app/dist
 COPY --from=server-builder /app/packages/backend/server/node_modules /app/node_modules
+COPY --from=server-builder /app/packages/backend/server/package.json /app/package.json
 COPY --from=server-builder /app/packages/backend/native/server-native.node /app/server-native.node
+
+# Create empty static directories (frontend not included)
+RUN mkdir -p /app/static/admin /app/static/mobile
+
+# Install runtime dependencies
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+
+ENV LD_PRELOAD=libjemalloc.so.2
 
 EXPOSE 3010
 
