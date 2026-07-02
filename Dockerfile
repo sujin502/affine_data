@@ -20,11 +20,14 @@ RUN yarn install --immutable
 # Build native
 RUN yarn workspace @affine/server-native build
 
-# Build server
-RUN yarn workspace @affine/server build
+# Build server with rspack (bypass CLI spawnSync bug, use tsx directly)
+RUN npx tsx tools/cli/src/affine.ts bundle -p @affine/server
 
 # Verify build output exists
-RUN echo "=== Checking dist ===" && ls -la packages/backend/server/dist/ && echo "=== main.js size ===" && wc -c packages/backend/server/dist/main.js
+RUN echo "=== Checking dist ===" && ls packages/backend/server/dist/main.js && echo "=== OK ==="
+
+# Install production dependencies only
+RUN yarn workspaces focus @affine/server --production
 
 # Generate Prisma client
 RUN yarn workspace @affine/server prisma generate
