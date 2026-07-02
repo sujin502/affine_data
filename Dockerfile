@@ -23,8 +23,8 @@ RUN yarn workspace @affine/server-native build
 # Build server
 RUN yarn workspace @affine/server build
 
-# Install production dependencies only
-RUN yarn workspaces focus @affine/server --production
+# Verify build output exists
+RUN echo "=== Checking dist ===" && ls -la packages/backend/server/dist/ && echo "=== main.js size ===" && wc -c packages/backend/server/dist/main.js
 
 # Generate Prisma client
 RUN yarn workspace @affine/server prisma generate
