@@ -24,30 +24,7 @@ RUN yarn install --immutable
 RUN yarn workspace @affine/server-native build
 
 # ============================================================
-# Stage 2: Build frontend (web, admin, mobile)
-# ============================================================
-FROM node:22-bookworm AS frontend-builder
-WORKDIR /app
-
-COPY .yarn .yarn
-COPY .yarnrc.yml package.json yarn.lock ./
-COPY packages/backend/server/package.json ./packages/backend/server/
-COPY packages/frontend ./packages/frontend
-COPY packages/common ./packages/common
-COPY packages/affine ./packages/affine
-
-RUN corepack enable && corepack prepare yarn@4.13.0 --activate
-RUN yarn install --immutable
-
-# Build web
-RUN yarn affine @affine/web build
-# Build admin
-RUN yarn affine @affine/admin build
-# Build mobile
-RUN yarn affine @affine/mobile build
-
-# ============================================================
-# Stage 3: Build server (TypeScript)
+# Stage 2: Build server (TypeScript)
 # ============================================================
 FROM node:22-bookworm AS server-builder
 WORKDIR /app
@@ -74,29 +51,19 @@ RUN yarn workspaces focus @affine/server --production
 # Generate Prisma client
 RUN yarn workspace @affine/server prisma generate
 
-# Move node_modules into server directory (as expected by Dockerfile)
+# Move node_modules into server directory (as expected by runtime)
 RUN mv ./node_modules ./packages/backend/server
 
 # ============================================================
-# Stage 4: Runtime image
+# Stage 3: Runtime - use official image as base (has frontend)
 # ============================================================
-FROM node:22-bookworm-slim
+FROM ghcr.io/toeverything/affine:stable AS runtime
 WORKDIR /app
 
-# Copy server
-COPY --from=server-builder /app/packages/backend/server /app
-
-# Copy frontend dists
-COPY --from=frontend-builder /app/packages/frontend/apps/web/dist /app/static
-COPY --from=frontend-builder /app/packages/frontend/admin/dist /app/static/admin
-COPY --from=frontend-builder /app/packages/frontend/apps/mobile/dist /app/static/mobile
-
-# Install runtime dependencies
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates && \
-  rm -rf /var/lib/apt/lists/*
-
-ENV LD_PRELOAD=libjemalloc.so.2
+# Copy only our modified server code (dist + node_modules + native)
+COPY --from=server-builder /app/packages/backend/server/dist /app/dist
+COPY --from=server-builder /app/packages/backend/server/node_modules /app/node_modules
+COPY --from=server-builder /app/packages/backend/native/server-native.node /app/server-native.node
 
 EXPOSE 3010
 
