@@ -20,6 +20,12 @@ RUN yarn install --immutable
 # Build native
 RUN yarn workspace @affine/server-native build
 
+# The server-native package conditionally requires architecture-specific files.
+# Rspack statically checks these require() calls, so create aliases for the current x64 build.
+RUN cp packages/backend/native/server-native.node packages/backend/native/server-native.x64.node && \
+  cp packages/backend/native/server-native.node packages/backend/native/server-native.arm64.node && \
+  cp packages/backend/native/server-native.node packages/backend/native/server-native.armv7.node
+
 # Build server with rspack (bypass CLI spawnSync bug, use tsx directly)
 RUN npx tsx tools/cli/src/affine.ts bundle -p @affine/server
 
@@ -47,8 +53,11 @@ COPY --from=builder /app/node_modules /app/node_modules
 # Copy server package.json
 COPY --from=builder /app/packages/backend/server/package.json /app/package.json
 
-# Copy native module
+# Copy native modules
 COPY --from=builder /app/packages/backend/native/server-native.node /app/server-native.node
+COPY --from=builder /app/packages/backend/native/server-native.x64.node /app/server-native.x64.node
+COPY --from=builder /app/packages/backend/native/server-native.arm64.node /app/server-native.arm64.node
+COPY --from=builder /app/packages/backend/native/server-native.armv7.node /app/server-native.armv7.node
 
 # Create empty static directories (use official image for frontend, or mount separately)
 RUN mkdir -p /app/static/admin /app/static/mobile
