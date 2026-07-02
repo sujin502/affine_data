@@ -37,7 +37,6 @@ COPY .yarnrc.yml package.json yarn.lock ./
 COPY packages/backend/server ./packages/backend/server
 COPY packages/backend/native/package.json ./packages/backend/native/
 COPY packages/common ./packages/common
-COPY packages/affine ./packages/affine
 
 RUN corepack enable && corepack prepare yarn@4.13.0 --activate
 RUN yarn install --immutable
