@@ -41,6 +41,9 @@ RUN yarn workspace @affine/server prisma generate
 # ============================================================
 # Stage 2: Runtime
 # ============================================================
+# Use official image for frontend static files
+FROM ghcr.io/toeverything/affine:stable AS frontend
+
 FROM node:22-bookworm-slim
 WORKDIR /app
 
@@ -59,8 +62,8 @@ COPY --from=builder /app/packages/backend/native/server-native.x64.node /app/ser
 COPY --from=builder /app/packages/backend/native/server-native.arm64.node /app/server-native.arm64.node
 COPY --from=builder /app/packages/backend/native/server-native.armv7.node /app/server-native.armv7.node
 
-# Create empty static directories (use official image for frontend, or mount separately)
-RUN mkdir -p /app/static/admin /app/static/mobile
+# Copy frontend static files from official image
+COPY --from=frontend /app/static /app/static
 
 # Install runtime dependencies
 RUN apt-get update && \
