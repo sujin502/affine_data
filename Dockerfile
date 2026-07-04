@@ -56,6 +56,13 @@ COPY --from=builder /app/node_modules /app/node_modules
 # Copy server package.json
 COPY --from=builder /app/packages/backend/server/package.json /app/package.json
 
+# Copy scripts (self-host-predeploy.js etc.)
+COPY --from=builder /app/packages/backend/server/scripts /app/scripts
+
+# Copy prisma schema and migrations (needed by migration script)
+COPY --from=builder /app/packages/backend/server/schema.prisma /app/schema.prisma
+COPY --from=builder /app/packages/backend/server/migrations /app/migrations
+
 # Copy native modules
 COPY --from=builder /app/packages/backend/native/server-native.node /app/server-native.node
 COPY --from=builder /app/packages/backend/native/server-native.x64.node /app/server-native.x64.node
@@ -69,6 +76,9 @@ COPY --from=frontend /app/static /app/static
 RUN apt-get update && \
   apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates && \
   rm -rf /var/lib/apt/lists/*
+
+# Install yarn (needed by migration script: execSync('yarn prisma migrate deploy'))
+RUN corepack enable && corepack prepare yarn@4.13.0 --activate
 
 ENV LD_PRELOAD=libjemalloc.so.2
 
