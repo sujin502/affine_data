@@ -77,9 +77,6 @@ RUN apt-get update && \
   apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 
-# Install yarn (needed by migration script: execSync('yarn prisma migrate deploy'))
-RUN corepack enable && corepack prepare yarn@4.13.0 --activate
-
 ENV LD_PRELOAD=libjemalloc.so.2
 
 EXPOSE 3010

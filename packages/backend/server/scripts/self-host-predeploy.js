@@ -40,7 +40,7 @@ function prepare() {
 
 function runPrismaMigrations() {
   console.log('running prisma migrations.');
-  execSync('yarn prisma migrate deploy', {
+  execSync('npx prisma migrate deploy', {
     encoding: 'utf-8',
     env: process.env,
     stdio: 'inherit',
@@ -53,7 +53,7 @@ function repairPgvectorEmbeddingTables() {
     path.join(import.meta.dirname, 'repair-pgvector-embedding-tables.sql'),
     'utf-8'
   );
-  execSync('yarn prisma db execute --stdin --schema schema.prisma', {
+  execSync('npx prisma db execute --stdin --schema schema.prisma', {
     encoding: 'utf-8',
     env: process.env,
     input: sql,
@@ -63,9 +63,10 @@ function repairPgvectorEmbeddingTables() {
 
 function runDataMigrations() {
   console.log('running data migrations.');
-  execSync('yarn cli run', {
+  const env = { ...process.env, SERVER_FLAVOR: 'script' };
+  execSync('node ./dist/main.js run', {
     encoding: 'utf-8',
-    env: process.env,
+    env: env,
     stdio: 'inherit',
   });
 }
@@ -77,7 +78,7 @@ function fixFailedMigrations() {
   ];
   for (const migration of maybeFailedMigrations) {
     try {
-      execSync(`yarn prisma migrate resolve --rolled-back ${migration}`, {
+      execSync(`npx prisma migrate resolve --rolled-back ${migration}`, {
         encoding: 'utf-8',
         env: process.env,
         stdio: 'pipe',
