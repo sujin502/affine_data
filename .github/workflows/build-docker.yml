@@ -15,6 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          electron-install: false
+
+      - name: Build admin
+        run: yarn affine @affine/admin build
+        env:
+          BUILD_TYPE: stable
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
