@@ -29,6 +29,9 @@ RUN cp packages/backend/native/server-native.node packages/backend/native/server
 # Build server with rspack (bypass CLI spawnSync bug, use tsx directly)
 RUN npx tsx tools/cli/src/affine.ts bundle -p @affine/server
 
+# Build admin so self-hosted config UI includes custom provider fields.
+RUN yarn workspace @affine/admin build
+
 # Verify build output exists
 RUN echo "=== Checking dist ===" && ls packages/backend/server/dist/main.js && echo "=== OK ==="
 
@@ -71,6 +74,9 @@ COPY --from=builder /app/packages/backend/native/server-native.armv7.node /app/s
 
 # Copy frontend static files from official image
 COPY --from=frontend /app/static /app/static
+
+# Override admin static files with this repository's customized admin build.
+COPY --from=builder /app/packages/frontend/admin/dist /app/static/admin
 
 # Install runtime dependencies
 RUN apt-get update && \
