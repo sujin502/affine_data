@@ -20,6 +20,7 @@ import {
   CopilotFailedToCreateMessage,
   CopilotSessionNotFound,
   type FileUpload,
+  Config,
   paginate,
   Paginated,
   PaginationInput,
@@ -374,7 +375,8 @@ export class CopilotResolver {
     private readonly chatSession: ChatSessionService,
     private readonly historyProjector: CompatHistoryProjector,
     private readonly inbox: ConversationInboxService,
-    private readonly providerFactory: CopilotProviderFactory
+    private readonly providerFactory: CopilotProviderFactory,
+    private readonly config: Config
   ) {}
 
   @ResolveField(() => CopilotQuotaType, {
@@ -467,10 +469,21 @@ export class CopilotResolver {
       return models.filter(model => !!model) as CopilotModelType[];
     };
     const proModels = prompt.config?.proModels || [];
+    const embeddingModel = this.config.copilot.embedding.model;
+    const providerModels = this.config.copilot.providers.profiles
+      .filter(
+        profile =>
+          profile.id !== this.config.copilot.providers.defaults.embedding &&
+          !profile.models?.includes(embeddingModel)
+      )
+      .flatMap(profile => profile.models ?? []);
 
     return {
       defaultModel: prompt.model,
-      optionalModels: await convertModels(prompt.optionalModels),
+      optionalModels: await convertModels([
+        ...prompt.optionalModels,
+        ...providerModels,
+      ]),
       proModels: await convertModels(proModels),
     };
   }

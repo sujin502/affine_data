@@ -149,6 +149,21 @@ export const KNOWN_CONFIG_GROUPS = [
     module: 'copilot',
     fields: [
       'enabled',
+      {
+        key: 'providers.profiles',
+        type: 'JSON',
+        desc: 'The profile list for copilot providers.',
+      },
+      {
+        key: 'providers.defaults',
+        type: 'JSON',
+        desc: 'The default provider ids for model output types and global fallback.',
+      },
+      {
+        key: 'embedding.model',
+        type: 'String',
+        desc: 'The default embedding model id.',
+      },
       'providers.openai',
       'providers.gemini',
       'providers.anthropic',

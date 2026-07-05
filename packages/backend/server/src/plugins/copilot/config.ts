@@ -209,6 +209,9 @@ declare global {
         anthropic: ConfigItem<AnthropicOfficialConfig>;
         anthropicVertex: ConfigItem<AnthropicVertexConfig>;
       };
+      embedding: {
+        model: ConfigItem<string>;
+      };
     };
   }
 }
@@ -242,6 +245,11 @@ defineModuleConfig('copilot', {
     desc: 'The default provider ids for model output types and global fallback.',
     default: {},
     shape: CopilotProviderDefaultsShape,
+  },
+  'embedding.model': {
+    desc: 'The default embedding model id.',
+    default: 'gemini-embedding-001',
+    shape: z.string(),
   },
   'providers.openai': {
     desc: 'The config for the openai provider.',

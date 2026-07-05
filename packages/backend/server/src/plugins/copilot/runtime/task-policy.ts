@@ -1,5 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 
+import { Config } from '../../../base';
 import { QuotaStateService } from '../../../core/quota/state';
 import { PromptService } from '../prompt/service';
 import { CopilotProviderRegistryService } from '../providers/registry-service';
@@ -13,6 +14,7 @@ export class TaskPolicy {
   constructor(
     private readonly quotaState: QuotaStateService,
     private readonly prompts: PromptService,
+    private readonly config: Config,
     @Optional() private readonly registries?: CopilotProviderRegistryService
   ) {}
 
@@ -32,7 +34,8 @@ export class TaskPolicy {
 
   resolveEmbeddingModelId() {
     return (
-      this.resolveDefaultProfileModel(ModelOutputType.Embedding) ??
+      this.config.copilot.embedding.model ||
+      this.resolveDefaultProfileModel(ModelOutputType.Embedding) ||
       DEFAULT_EMBEDDING_MODEL
     );
   }
