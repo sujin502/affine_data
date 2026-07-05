@@ -30,7 +30,7 @@ RUN cp packages/backend/native/server-native.node packages/backend/native/server
 RUN npx tsx tools/cli/src/affine.ts bundle -p @affine/server
 
 # Build admin so self-hosted config UI includes custom provider fields.
-RUN yarn workspace @affine/admin build
+RUN npx tsx tools/cli/src/affine.ts bundle -p @affine/admin
 
 # Verify build output exists
 RUN echo "=== Checking dist ===" && ls packages/backend/server/dist/main.js && echo "=== OK ==="
