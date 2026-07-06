@@ -402,6 +402,7 @@ export async function checkProviderParams(
     embeddings,
     options = {},
     withAttachment = true,
+    execution,
   }: {
     cond: ModelFullConditions;
     messages?: PromptMessage[];
