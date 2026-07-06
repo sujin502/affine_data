@@ -131,10 +131,49 @@ function formatConfiguredModelName(modelId: string) {
     .join(' ');
 }
 
+function resolveOpenAICompatibleProfileBaseURL(
+  context: CustomModelRuntimeContext
+): string | undefined {
+  const config = context.execution?.profile.config;
+  if (
+    config &&
+    typeof config === 'object' &&
+    'baseURL' in config &&
+    typeof config.baseURL === 'string'
+  ) {
+    return config.baseURL;
+  }
+  return;
+}
+
+function shouldPreserveOpenAICompatibleBasePath(baseURL?: string) {
+  if (!baseURL) return false;
+
+  try {
+    const url = new URL(baseURL);
+    const lastPathSegment = url.pathname
+      .replace(/\/+$/, '')
+      .split('/')
+      .filter(Boolean)
+      .at(-1);
+    return !!lastPathSegment && /^v(?!1$)\d+$/i.test(lastPathSegment);
+  } catch {
+    return false;
+  }
+}
+
 function resolveOpenAICompatibleRequestLayer(
-  backendKind: CopilotModelBackendKind
+  context: CustomModelRuntimeContext
 ): LlmBackendConfig['request_layer'] {
-  return backendKind === 'openai_chat' ? 'chat_completions' : 'responses';
+  if (context.backendKind !== 'openai_chat') {
+    return 'responses';
+  }
+
+  return shouldPreserveOpenAICompatibleBasePath(
+    resolveOpenAICompatibleProfileBaseURL(context)
+  )
+    ? 'chat_completions_no_v1'
+    : 'chat_completions';
 }
 
 function resolveOpenAICompatibleProtocol(
@@ -168,7 +207,7 @@ function createOpenAICompatibleCapabilities(
 }
 
 function createOpenAICompatibleModel(
-  context: ProviderModelRuntimeContext,
+  context: CustomModelRuntimeContext,
   modelId: string,
   outputType: ModelOutputType
 ): ResolvedProviderModel | undefined {
@@ -195,7 +234,7 @@ function createOpenAICompatibleModel(
     backendKind: context.backendKind,
     canonicalKey: `${context.backendKind}:${modelId}`,
     protocol,
-    requestLayer: resolveOpenAICompatibleRequestLayer(context.backendKind),
+    requestLayer: resolveOpenAICompatibleRequestLayer(context),
     capabilities: createOpenAICompatibleCapabilities(outputType),
   };
 }

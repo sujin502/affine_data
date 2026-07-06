@@ -440,6 +440,7 @@ export type LlmBackendConfig = {
   request_layer?:
     | 'anthropic'
     | 'chat_completions'
+    | 'chat_completions_no_v1'
     | 'cloudflare_workers_ai'
     | 'responses'
     | 'openai_images'

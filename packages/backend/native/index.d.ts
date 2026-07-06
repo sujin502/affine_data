@@ -536,7 +536,7 @@ export interface ModelRegistryResolveResponse {
 
 export interface ModelRegistryRouteContract {
   protocol?: 'openai_chat' | 'openai_responses' | 'openai_images' | 'anthropic' | 'gemini' | 'fal_image'
-  requestLayer?: 'anthropic' | 'chat_completions' | 'cloudflare_workers_ai' | 'responses' | 'openai_images' | 'fal' | 'vertex' | 'vertex_anthropic' | 'gemini_api' | 'gemini_vertex'
+  requestLayer?: 'anthropic' | 'chat_completions' | 'chat_completions_no_v1' | 'cloudflare_workers_ai' | 'responses' | 'openai_images' | 'fal' | 'vertex' | 'vertex_anthropic' | 'gemini_api' | 'gemini_vertex'
 }
 
 export interface ModelRegistryVariantContract {
@@ -548,7 +548,7 @@ export interface ModelRegistryVariantContract {
   legacyAliases?: Array<string>
   capabilities: Array<CapabilityModelCapability>
   protocol?: 'openai_chat' | 'openai_responses' | 'openai_images' | 'anthropic' | 'gemini' | 'fal_image'
-  requestLayer?: 'anthropic' | 'chat_completions' | 'cloudflare_workers_ai' | 'responses' | 'openai_images' | 'fal' | 'vertex' | 'vertex_anthropic' | 'gemini_api' | 'gemini_vertex'
+  requestLayer?: 'anthropic' | 'chat_completions' | 'chat_completions_no_v1' | 'cloudflare_workers_ai' | 'responses' | 'openai_images' | 'fal' | 'vertex' | 'vertex_anthropic' | 'gemini_api' | 'gemini_vertex'
   routeOverrides?: Record<string, ModelRegistryRouteContract>
   behaviorFlags?: Array<string>
 }
