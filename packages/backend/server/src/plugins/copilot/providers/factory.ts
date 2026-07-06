@@ -392,6 +392,18 @@ export class CopilotProviderFactory {
         return null;
       }
 
+      this.logger.debug(
+        `Prepared embedding route: ${JSON.stringify({
+          providerId: preparedEmbedding.route.providerId,
+          model: preparedEmbedding.route.model,
+          protocol: preparedEmbedding.route.protocol,
+          requestLayer: preparedEmbedding.route.requestLayer,
+          baseURL: preparedEmbedding.route.backendConfig.base_url,
+          inputCount: Array.isArray(input) ? input.length : 1,
+          dimensions: options?.dimensions,
+        })}`
+      );
+
       return {
         modelId: preparedEmbedding.route.model,
         preparedEmbedding,
