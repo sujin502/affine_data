@@ -137,6 +137,36 @@ function resolveOpenAICompatibleRequestLayer(
   return backendKind === 'openai_chat' ? 'chat_completions' : 'responses';
 }
 
+function resolveOpenAICompatibleProtocol(
+  backendKind: CopilotModelBackendKind
+): LlmProtocol {
+  return backendKind === 'openai_chat' ? 'openai_chat' : 'openai_responses';
+}
+
+function createOpenAICompatibleCapabilities(
+  outputType: ModelOutputType
+): ModelCapability[] {
+  if (outputType === ModelOutputType.Embedding) {
+    return [
+      {
+        input: [ModelInputType.Text],
+        output: [ModelOutputType.Embedding],
+      },
+    ];
+  }
+
+  return [
+    {
+      input: [ModelInputType.Text],
+      output: [
+        ModelOutputType.Text,
+        ModelOutputType.Object,
+        ModelOutputType.Structured,
+      ],
+    },
+  ];
+}
+
 function createOpenAICompatibleModel(
   context: ProviderModelRuntimeContext,
   modelId: string,
@@ -154,12 +184,10 @@ function createOpenAICompatibleModel(
     return;
   }
 
-  const output =
-    outputType === ModelOutputType.Object ? ModelOutputType.Text : outputType;
   const protocol: LlmProtocol =
     outputType === ModelOutputType.Embedding
       ? 'openai_chat'
-      : 'openai_responses';
+      : resolveOpenAICompatibleProtocol(context.backendKind);
 
   return {
     id: modelId,
@@ -168,12 +196,7 @@ function createOpenAICompatibleModel(
     canonicalKey: `${context.backendKind}:${modelId}`,
     protocol,
     requestLayer: resolveOpenAICompatibleRequestLayer(context.backendKind),
-    capabilities: [
-      {
-        input: [ModelInputType.Text],
-        output: [output],
-      },
-    ],
+    capabilities: createOpenAICompatibleCapabilities(outputType),
   };
 }
 
