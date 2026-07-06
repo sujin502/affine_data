@@ -1,4 +1,4 @@
-import { Injectable, Type } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 
 import { OnEvent } from '../../../base';
@@ -9,7 +9,7 @@ import { CopilotProviders } from './provider-tokens';
 import { CopilotProviderRegistryService } from './registry-service';
 
 @Injectable()
-export class CopilotProviderLifecycleService {
+export class CopilotProviderLifecycleService implements OnApplicationBootstrap {
   private readonly registeredByProvider = new WeakMap<
     CopilotProvider,
     Set<string>
@@ -74,6 +74,10 @@ export class CopilotProviderLifecycleService {
     for (const provider of this.getProviders()) {
       await this.syncProvider(provider);
     }
+  }
+
+  async onApplicationBootstrap() {
+    await this.syncProviders();
   }
 
   @OnEvent('config.init')
