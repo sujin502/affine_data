@@ -131,6 +131,12 @@ function formatConfiguredModelName(modelId: string) {
     .join(' ');
 }
 
+function resolveOpenAICompatibleRequestLayer(
+  backendKind: CopilotModelBackendKind
+): LlmBackendConfig['request_layer'] {
+  return backendKind === 'openai_chat' ? 'chat_completions' : 'responses';
+}
+
 function createOpenAICompatibleModel(
   context: ProviderModelRuntimeContext,
   modelId: string,
@@ -161,7 +167,7 @@ function createOpenAICompatibleModel(
     backendKind: context.backendKind,
     canonicalKey: `${context.backendKind}:${modelId}`,
     protocol,
-    requestLayer: context.backendKind,
+    requestLayer: resolveOpenAICompatibleRequestLayer(context.backendKind),
     capabilities: [
       {
         input: [ModelInputType.Text],
