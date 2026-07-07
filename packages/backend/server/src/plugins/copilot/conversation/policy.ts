@@ -14,6 +14,10 @@ export class ConversationPolicy {
   ) {}
 
   async getQuota(userId: string) {
+    if (env.selfhosted) {
+      return { limit: undefined, used: 0 };
+    }
+
     const quota = await this.quota.getUserQuota(userId);
     const limit = quota.copilotActionLimit;
 
@@ -29,6 +33,10 @@ export class ConversationPolicy {
   }
 
   async hasQuota(userId: string) {
+    if (env.selfhosted) {
+      return true;
+    }
+
     const { limit, used } = await this.getQuota(userId);
     return !(limit !== undefined && Number.isFinite(limit) && used >= limit);
   }
