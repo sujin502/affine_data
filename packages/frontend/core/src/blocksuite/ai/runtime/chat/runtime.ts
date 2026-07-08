@@ -237,9 +237,11 @@ export class AIChatRuntime {
   ): AIChatSnapshot['uiPolicy'] {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const isGenerating = status === 'loading' || status === 'transmitting';
+    const hasActiveSession = activeTab?.kind === 'session';
     return {
       showDraftTab: activeTab?.kind === 'draft',
-      canCreateNewSession: !!activeTab?.hasMessages && !isGenerating,
+      canCreateNewSession:
+        (!!activeTab?.hasMessages || hasActiveSession) && !isGenerating,
       canCloseActiveTab: activeTab?.kind === 'session' && tabs.length > 1,
       canPinActiveSession: activeTab?.kind === 'session',
       canSend: !isGenerating,
@@ -415,7 +417,16 @@ export class AIChatRuntime {
       await this.bindActiveSessionToDoc().catch(console.error);
     } catch (error) {
       if (seq !== this.requestSeq) return;
-      this.commit({ status: 'error', error: this.toError(error) });
+      this.commit({
+        status: 'error',
+        error: this.toError(error),
+        tabs: this.markActiveTabHasMessages(this.snapshot.tabs),
+        composer: {
+          ...this.snapshot.composer,
+          text: '',
+          attachments: [],
+        },
+      });
     }
   }
 

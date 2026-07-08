@@ -497,6 +497,32 @@ describe('AIChatRuntime', () => {
     ]);
   });
 
+  test('send failure clears sent attachments and allows starting a fresh chat', async () => {
+    const error = new Error('model does not support images');
+    const request = createRequest({
+      executeAction: vi.fn().mockRejectedValue(error),
+    });
+    const runtime = createRuntime(request);
+    await runtime.dispatch({ type: 'initialize' });
+    await runtime.dispatch({ type: 'addAttachment', attachment: 'image-url' });
+    await runtime.dispatch({ type: 'setComposerText', text: 'read this' });
+
+    await runtime.dispatch({ type: 'send' });
+
+    expect(runtime.getSnapshot().status).toBe('error');
+    expect(runtime.getSnapshot().composer.text).toBe('');
+    expect(runtime.getSnapshot().composer.attachments).toEqual([]);
+    expect(runtime.getSnapshot().tabs[0]).toEqual(
+      expect.objectContaining({ kind: 'session', hasMessages: true })
+    );
+    expect(runtime.getSnapshot().uiPolicy.canCreateNewSession).toBe(true);
+
+    await runtime.dispatch({ type: 'createNewSession' });
+
+    expect(runtime.getSnapshot().activeSessionId).toBeNull();
+    expect(runtime.getSnapshot().messages).toEqual([]);
+  });
+
   test('send remains successful when refreshing the assistant message id fails', async () => {
     const error = new Error('history unavailable');
     const consoleError = vi
