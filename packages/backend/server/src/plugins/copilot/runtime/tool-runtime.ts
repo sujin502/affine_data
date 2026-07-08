@@ -10,6 +10,7 @@ import { CopilotContextService } from '../context/service';
 import {
   type CopilotChatOptions,
   type CopilotChatTools,
+  type PromptMessage,
 } from '../providers/types';
 import {
   buildBlobContentGetter,
@@ -68,9 +69,15 @@ export class ToolRuntime {
     }
     const runPromptText = (
       promptName: string,
-      params: Record<string, unknown>
+      params: Record<string, unknown>,
+      promptOptions: {
+        modelId?: string;
+        appendMessages?: PromptMessage[];
+      } = {}
     ) =>
       this.promptRuntime.runText(promptName, params, {
+        ...promptOptions,
+        modelId: promptOptions.modelId ?? model,
         providerOptions: {
           user: options.user,
           session: options.session,
